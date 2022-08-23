@@ -43,7 +43,17 @@ Steve Markgraf, RTL-SDR Library - https://github.com/steve-m/librtlsdr
 #include <stdlib.h> // For exit function
 #include <unistd.h>    /* for getopt */
 
+#define HIGH 0b0011
+#define LOW  0b1100
+
+#define SET_BIT(byte, bit) ((byte) |= (1UL << (bit)))
+
+#define CLEAR_BIT(byte,bit) ((byte) &= ~(1UL << (bit)))
+
+#define IS_SET(byte,bit) (((byte) & (1UL << (bit))) >> (bit))
+
 /* Global variables */
+char *validChar = "abcdefghijklmnopqrstuvwxyz0123456789";
 int32_t g_threshold; // Quantization threshold
 int g_srate; // sample rate downconvert ratio
 
@@ -307,14 +317,20 @@ bool DecodeNRFPacket(int32_t sample, int srate, int packet_length){
 	/* extract crc */
 	ExtractBytes((6+packet_length)*8+9, tmp_buf, 2);
 	packet_crc = tmp_buf[0]<<8 | tmp_buf[1];
-
+	char buff[2];
+	
 	/* NRF24L01+ packet found, dump information */
 	if (packet_crc==calced_crc){
 		gettimeofday(&tv, NULL);
 		printf("%ld.%06ld ", (long)tv.tv_sec, tv.tv_usec);
 		printf("NRF24 Packet start sample %"PRId32", Threshold:%"PRId32", Address: 0x%08"PRIX64" ",sample,g_threshold,packet_addr_l);
 		printf("length:%d, pid:%d, no_ack:%d, CRC:0x%04X data:",packet_length,(pcf&0b110)>>1,pcf&0b1,packet_crc);
-		for (c=0;c<packet_length;c++) printf("%02X ",packet_data[c]);
+		for (c=0;c<packet_length;c++) {
+		        if (strchr(validChar, (char)(packet_data[c] & 0xFF) )) sprintf(buff, "%c", (char)(packet_data[c] & 0xFF));
+			else if (strchr(validChar, (char)(~packet_data[c] & 0xFF) )) sprintf(buff, "%c", (char)(~packet_data[c] & 0xFF));
+			printf("%s", buff);
+			printf("%s", " ");
+		}
 		printf("\n");
 		return true;
 	} else return false;
